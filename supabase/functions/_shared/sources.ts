@@ -25,7 +25,11 @@ async function conditionalFetch(
   return { status: res.status, body, etag: newEtag, lastModified: newLM };
 }
 
-const xml = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
+const xml = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: "@_",
+  processEntities: false, // evita el "entity expansion limit" en feeds grandes (WeWorkRemotely)
+});
 
 function asArray<T>(v: T | T[] | undefined | null): T[] {
   if (v === undefined || v === null) return [];
@@ -79,35 +83,29 @@ function parseRss(body: string): NormalizedJob[] {
   });
 }
 
-// ---------- Get on Board (JSON:API) ----------
-function parseGetonbrd(body: string): NormalizedJob[] {
-  const doc = JSON.parse(body);
-  const data = asArray(doc?.data);
-  return data.map((d: Record<string, any>): NormalizedJob => {
-    const a = d.attributes ?? {};
-    const id = String(d.id ?? a.hashid ?? a.id ?? a.slug ?? crypto.randomUUID());
-    const url =
-      a.url ?? a.apply_url ?? d.links?.self ?? `https://www.getonbrd.com/jobs/${id}`;
-    const remote =
-      typeof a.remote === "boolean"
-        ? a.remote
-        : a.remote_modality
-          ? /remote|hybrid/i.test(String(a.remote_modality))
-          : null;
+// ---------- Get on Board (feed XML público: <source><job>…) ----------
+// La API JSON v0 de /jobs ahora requiere token (401); usamos el feed público AR.
+function parseGetonbrdFeed(body: string): NormalizedJob[] {
+  const doc = xml.parse(body);
+  const jobs = asArray(doc?.source?.job);
+  return jobs.map((j: Record<string, any>): NormalizedJob => {
+    const country = String(j.country ?? "").trim();
+    const dateStr = String(j.date ?? "").trim();
+    const parsed = dateStr ? new Date(dateStr.replace(" UTC", "Z").replace(" ", "T")) : null;
     return {
-      external_id: id,
-      title: String(a.title ?? "").trim(),
-      company: a.company?.data?.attributes?.name ?? a.company_name ?? null,
-      location: a.country ?? a.city ?? null,
-      remote,
-      candidate_region: a.remote_modality ?? null,
-      url: String(url),
-      description: stripHtml(a.description ?? a.functions ?? "").slice(0, 4000),
-      tags: asArray(a.tags).map((t: any) => String(t)).slice(0, 10),
-      salary_min: num(a.min_salary),
-      salary_max: num(a.max_salary),
-      posted_at: a.published_at ? new Date(String(a.published_at)).toISOString() : null,
-      raw: d,
+      external_id: String(j.referencenumber ?? j.url ?? "").trim(),
+      title: String(j.title ?? "").trim(),
+      company: j.company ? String(j.company).trim() : null,
+      location: country || null,
+      remote: /remote|remoto/i.test(country),
+      candidate_region: country || null,
+      url: String(j.url ?? "").trim(),
+      description: stripHtml(String(j.description ?? "")).slice(0, 4000),
+      tags: [],
+      salary_min: null,
+      salary_max: null,
+      posted_at: parsed && !isNaN(parsed.getTime()) ? parsed.toISOString() : null,
+      raw: j,
     };
   });
 }
@@ -218,13 +216,14 @@ export async function fetchSource(source: SourceRow): Promise<FetchResult> {
     throw new Error(`Fuente ${source.name} respondió ${r.status}`);
   }
 
+  // Parsers por NOMBRE de fuente primero (tienen formato propio), luego por tipo.
   let jobs: NormalizedJob[] = [];
-  if (source.type === "rss") {
-    jobs = parseRss(r.body);
-  } else if (source.name === "getonbrd") {
-    jobs = parseGetonbrd(r.body);
+  if (source.name === "getonbrd") {
+    jobs = parseGetonbrdFeed(r.body);
   } else if (source.name === "remotive") {
     jobs = parseRemotive(r.body);
+  } else if (source.type === "rss") {
+    jobs = parseRss(r.body);
   } else if (source.type === "ats") {
     jobs = parseAts(r.body, String((source.config as Record<string, string>).provider));
   } else {

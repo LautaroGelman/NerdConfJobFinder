@@ -1,16 +1,19 @@
 # Configuración del proyecto Supabase (local CLI).
 # Lo importante acá es verify_jwt por función.
+#
+# Este proyecto usa el FORMATO NUEVO de API keys (sb_publishable_ / sb_secret_),
+# que NO son JWT. Como verify_jwt sólo acepta JWT, las 3 funciones van públicas
+# (verify_jwt = false). La seguridad se maneja así:
+#  - telegram-webhook: secreto X-Telegram-Bot-Api-Secret-Token (TELEGRAM_WEBHOOK_SECRET).
+#  - poll: lo dispara el cron interno; tope de llamadas IA por corrida acota el abuso.
+#  - draft-cover-letter: sólo genera texto a partir de un matchId existente.
 project_id = "job-agent"
 
 [functions.poll]
-# El cron manda la service_role key como Bearer (JWT válido) -> dejamos la verificación on.
-verify_jwt = true
+verify_jwt = false
 
 [functions.telegram-webhook]
-# Telegram NO manda un JWT de Supabase; verificamos con TELEGRAM_WEBHOOK_SECRET
-# (header X-Telegram-Bot-Api-Secret-Token) dentro de la función. Por eso: off.
 verify_jwt = false
 
 [functions.draft-cover-letter]
-# Se invoca desde el front con la anon key (JWT válido) -> on.
-verify_jwt = true
+verify_jwt = false

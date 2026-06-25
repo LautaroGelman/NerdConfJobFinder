@@ -1,13 +1,10 @@
 -- ============================================================================
 -- CRON: dispara la Edge Function `poll` cada 2 minutos.
--- Ejecutar en el SQL Editor de Supabase DESPUÉS de deployar la función `poll`.
+-- `poll` está como verify_jwt = false (pública), así que el cron la llama
+-- sin necesidad de credenciales.
 --
--- Reemplazá:
---   <PROJECT_REF>  -> el ref de tu proyecto (la parte de https://<PROJECT_REF>.supabase.co)
---   <SERVICE_ROLE_KEY> -> Project Settings > API > service_role key
---
--- (También podés hacerlo sin SQL desde el dashboard: Integrations > Cron > Create job,
---  apuntando a la función `poll` con schedule */2 * * * *.)
+-- Reemplazá <PROJECT_REF> por el ref de tu proyecto.
+-- (También se puede crear desde el dashboard: Integrations > Cron.)
 -- ============================================================================
 
 create extension if not exists pg_cron;
@@ -24,10 +21,7 @@ select cron.schedule(
   $$
   select net.http_post(
     url     := 'https://<PROJECT_REF>.supabase.co/functions/v1/poll',
-    headers := jsonb_build_object(
-      'Content-Type',  'application/json',
-      'Authorization', 'Bearer <SERVICE_ROLE_KEY>'
-    ),
+    headers := jsonb_build_object('Content-Type', 'application/json'),
     body    := '{}'::jsonb,
     timeout_milliseconds := 120000
   );

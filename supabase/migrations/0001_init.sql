@@ -165,11 +165,13 @@ create policy "update applications" on public.applications for update using (tru
 -- Seed: fuentes sin auth, listas para poolear. Editar/agregar libremente.
 -- Para ATS (Greenhouse/Lever/Ashby) cargá un board_token real en config.
 -- ============================================================================
-insert into public.sources (name, type, base_url, config, poll_interval_sec) values
-  ('getonbrd',          'api', 'https://www.getonbrd.com/api/v0/jobs?per_page=30&expand=company', '{}'::jsonb, 120),
-  ('weworkremotely',    'rss', 'https://weworkremotely.com/remote-jobs.rss',                       '{}'::jsonb, 180),
-  ('hnhiring',          'rss', 'https://hnrss.org/whoishiring/jobs?q=remote',                      '{}'::jsonb, 300),
-  ('remotive',          'api', 'https://remotive.com/api/remote-jobs?limit=30',                    '{}'::jsonb, 1800)
+insert into public.sources (name, type, base_url, config, poll_interval_sec, enabled) values
+  -- Get on Board: su API JSON v0 ahora pide token (401); usamos el feed XML público AR.
+  ('getonbrd',          'rss', 'https://www.getonbrd.com.ar/jobs/feed',     '{}'::jsonb, 120,  true),
+  ('weworkremotely',    'rss', 'https://weworkremotely.com/remote-jobs.rss','{}'::jsonb, 180,  true),
+  ('remotive',          'api', 'https://remotive.com/api/remote-jobs?limit=30','{}'::jsonb, 1800, true),
+  -- Hacker News "Who is hiring": útil pero los títulos vienen sucios -> desactivado por defecto.
+  ('hnhiring',          'rss', 'https://hnrss.org/whoishiring/jobs?q=remote','{}'::jsonb, 300,  false)
 on conflict (name) do nothing;
 
 -- Ejemplos de ATS (deshabilitados hasta que pongas board_tokens reales):
