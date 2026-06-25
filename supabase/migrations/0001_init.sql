@@ -152,10 +152,11 @@ create policy "read matches"       on public.matches       for select using (tru
 create policy "read applications"  on public.applications  for select using (true);
 create policy "read sources"       on public.sources       for select using (true);
 
--- Perfiles: el demo deja crear/leer/editar desde el front.
+-- Perfiles: el demo deja crear/leer/editar/borrar desde el front.
 create policy "read profiles"   on public.profiles for select using (true);
 create policy "insert profiles" on public.profiles for insert with check (true);
 create policy "update profiles" on public.profiles for update using (true) with check (true);
+create policy "delete profiles" on public.profiles for delete using (true);
 
 -- Applications: permitir actualizar estado/notas desde el front.
 create policy "insert applications" on public.applications for insert with check (true);

@@ -147,6 +147,24 @@ export default function Home() {
     setSaving(false);
   }
 
+  async function clearProfile() {
+    if (profile) {
+      const ok = window.confirm(
+        "¿Borrar tu perfil y empezar de cero? Se eliminan también tus matches.",
+      );
+      if (!ok) return;
+      await supabase.from("profiles").delete().eq("id", profile.id);
+    }
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+    localStorage.removeItem(STORAGE_KEY);
+    setProfile(null);
+    setForm(emptyForm);
+    setMatches([]);
+  }
+
   async function makeDraft(match: MatchWithJob) {
     setDraft({ open: true, loading: true, title: match.jobs.title, letter: "" });
     const { data, error } = await supabase.functions.invoke("draft-cover-letter", {
@@ -261,6 +279,11 @@ export default function Home() {
             <button onClick={saveProfile} disabled={saving || !supabaseConfigured}>
               {saving ? "Guardando..." : profile ? "Actualizar perfil" : "Crear perfil"}
             </button>
+            {profile && (
+              <button className="secondary" onClick={clearProfile} disabled={saving}>
+                🗑️ Limpiar perfil
+              </button>
+            )}
           </div>
 
           {/* ----------------- Conectar Telegram ----------------- */}
